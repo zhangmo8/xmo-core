@@ -1,6 +1,6 @@
 // @ts-check
 import assert from 'node:assert/strict'
-import { parse } from '@babel/parser'
+import { parseSync } from 'oxc-parser'
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import MagicString from 'magic-string'
 import dts from 'rollup-plugin-dts'
@@ -58,10 +58,16 @@ function patchTypes(pkg) {
     name: 'patch-types',
     renderChunk(code, chunk) {
       const s = new MagicString(code)
-      const ast = parse(code, {
-        plugins: ['typescript'],
+      const { program, errors } = parseSync(code, {
+        sourceFilename: 'x.d.ts',
         sourceType: 'module',
       })
+
+      const ast = JSON.parse(program)
+
+      if (errors.length) {
+        throw new Error(errors.join('\n'))
+      }
 
       /**
        * @param {import('@babel/types').VariableDeclarator | import('@babel/types').TSTypeAliasDeclaration | import('@babel/types').TSInterfaceDeclaration | import('@babel/types').TSDeclareFunction | import('@babel/types').TSInterfaceDeclaration | import('@babel/types').TSEnumDeclaration | import('@babel/types').ClassDeclaration} node
@@ -88,7 +94,7 @@ function patchTypes(pkg) {
       const shouldRemoveExport = new Set()
 
       // pass 0: check all exported types
-      for (const node of ast.program.body) {
+      for (const node of ast.body) {
         if (node.type === 'ExportNamedDeclaration' && !node.source) {
           for (let i = 0; i < node.specifiers.length; i++) {
             const spec = node.specifiers[i]
@@ -100,7 +106,7 @@ function patchTypes(pkg) {
       }
 
       // pass 1: add exports
-      for (const node of ast.program.body) {
+      for (const node of ast.body) {
         if (node.type === 'VariableDeclaration') {
           processDeclaration(node.declarations[0], node)
           if (node.declarations.length > 1) {
@@ -125,7 +131,7 @@ function patchTypes(pkg) {
       }
 
       // pass 2: remove exports
-      for (const node of ast.program.body) {
+      for (const node of ast.body) {
         if (node.type === 'ExportNamedDeclaration' && !node.source) {
           let removed = 0
           for (let i = 0; i < node.specifiers.length; i++) {
