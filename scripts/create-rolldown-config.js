@@ -220,7 +220,7 @@ export function createConfigsForPackage({
     // so we still need replace plugin in some cases
     function resolveReplace() {
       /** @type {Record<string, string>} */
-      const replacements = {}
+      const replacements = { ...enumDefines }
 
       if (isBundlerESMBuild) {
         Object.assign(replacements, {
@@ -309,7 +309,7 @@ export function createConfigsForPackage({
       // Global and Browser ESM builds inlines everything so that they can be
       // used alone.
       external: resolveExternal(),
-      define: { ...enumDefines, ...resolveDefine() },
+      define: resolveDefine(),
       platform: format === 'cjs' ? 'node' : 'browser',
       resolve: {
         alias: entries,
@@ -330,9 +330,6 @@ export function createConfigsForPackage({
       treeshake: {
         // https://github.com/rolldown/rolldown/issues/1917
         moduleSideEffects: false,
-      },
-      experimental: {
-        disableLiveBindings: true,
       },
     }
   }
